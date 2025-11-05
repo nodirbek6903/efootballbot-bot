@@ -1,9 +1,12 @@
+require("dotenv").config()
 const axios = require("axios");
 
 const api = axios.create({
-  baseURL: process.env.BACKEND_URL,
+  baseURL: process.env.BACKEND_URI,
   headers: { "Content-Type": "application/json" },
 });
+
+console.log("backend url:" , process.env.BACKEND_URI)
 
 // Telegram ID headerini qo‘shish uchun qulay funksiya
 const authHeader = (telegramId) => ({
@@ -71,7 +74,7 @@ const getTeamsByTournamentId = async (telegramId, id) => {
 
 const joinTournament = async (telegramId, tournamentId, teamId, username) => {
   const res = await api.post(
-    "player/join",
+    "/player/join",
     { telegramId, tournamentId, teamId, username },
     authHeader(telegramId)
   );

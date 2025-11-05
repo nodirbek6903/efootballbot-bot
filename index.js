@@ -8,16 +8,19 @@ const {
 const { superadminScene } = require("./scenes/superadminScene");
 const { adminScene } = require("./scenes/adminScene");
 const { playerScene } = require("./scenes/playerScene");
+const express = require("express");
 
 dotenv.config();
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 global.bot = bot;
 
+// Stage va session
 const stage = new Scenes.Stage([superadminScene, adminScene, playerScene]);
 bot.use(session());
 bot.use(stage.middleware());
 
+// START komandasi
 bot.start(async (ctx) => {
   const telegramId = ctx.from.id;
   const username = ctx.from.username || "unknown";
@@ -41,8 +44,8 @@ bot.start(async (ctx) => {
 
       await ctx.replyWithHTML(
         `🏆 <b>${tournament.name}</b> turniriga hush kelibsiz!\n\n` +
-          `Jamoalar soni: ${tournament.teamCount}\n` +
-          `Har jamoada: ${tournament.playersPerTeam} o‘yinchi\n\n`,
+        `Jamoalar soni: ${tournament.teamCount}\n` +
+        `Har jamoada: ${tournament.playersPerTeam} o‘yinchi\n\n`,
         Markup.keyboard([["🎯 Turnirga qo‘shilish"], ["📊 Statistikam"]]).resize()
       );
     } catch {
@@ -55,6 +58,7 @@ bot.start(async (ctx) => {
   return ctx.scene.enter("player");
 });
 
+// Turnirni boshlash action
 bot.action(/start_(.+)/, async (ctx) => {
   const tournamentId = ctx.match[1];
   const telegramId = ctx.from.id;
@@ -71,10 +75,31 @@ bot.command("admin", (ctx) => ctx.scene.enter("admin"));
 bot.command("player", (ctx) => ctx.scene.enter("player"));
 bot.command("superadmin", (ctx) => ctx.scene.enter("superadmin"));
 
-// 🟢 BOTNI ISHGA TUSHIRISH
-bot.launch();
-console.log("🤖 Bot polling mode orqali ishga tushdi!");
+// --- EXPRESS + WEBHOOK ---
+const app = express();
+app.use(express.json());
 
-// Yopilishda toza to‘xtatish
+// Telegram webhook callback
+app.use(bot.webhookCallback("/telegram-bot"));
+
+// Render yoki boshqa public URL orqali webhook set qilish
+(async () => {
+  try {
+    await bot.telegram.deleteWebhook();
+    await bot.telegram.setWebhook(`${process.env.BACKEND_URI}/telegram-bot`);
+    console.log(`🤖 Webhook set: ${process.env.BACKEND_URI}/telegram-bot`);
+  } catch (err) {
+    console.error("Webhook setlashda xatolik:", err.message);
+  }
+})();
+
+// Port sozlash
+const PORT = process.env.BOT_PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`🤖 Bot server running on port ${PORT}`);
+});
+
 process.once("SIGINT", () => bot.stop("SIGINT"));
 process.once("SIGTERM", () => bot.stop("SIGTERM"));
+
+module.exports = { bot };
