@@ -86,8 +86,8 @@ app.use(bot.webhookCallback("/telegram-bot"));
 (async () => {
   try {
     await bot.telegram.deleteWebhook();
-    await bot.telegram.setWebhook(`${process.env.BACKEND_URI}/telegram-bot`);
-    console.log(`🤖 Webhook set: ${process.env.BACKEND_URI}/telegram-bot`);
+    await bot.telegram.setWebhook(`${process.env.API_URL}/telegram-bot`);
+    console.log(`🤖 Webhook set: ${process.env.API_URL}/telegram-bot`);
   } catch (err) {
     console.error("Webhook setlashda xatolik:", err.message);
   }
