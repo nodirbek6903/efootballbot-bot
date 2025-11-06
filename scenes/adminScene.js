@@ -9,6 +9,7 @@ const {
   notifyPlayers,
   getPendingResults,
   approveResult,
+  getAllPlayers,
   getPlayerStatsById,
   getGroupStandings
 } = require("../helpers/api");
@@ -153,55 +154,35 @@ adminScene.hears("📝 Natijalarni tasdiqlash", async (ctx) => {
   }
 });
 adminScene.hears("O'yinchilar statistikasi", async (ctx) => {
-  const telegramId = ctx.from.id
-  await ctx.reply("Malumotlar yuklanmoqda...")
+  const telegramId = ctx.from.id;
+  await ctx.reply("O'yinchilar yuklanmoqda...");
 
   try {
-    const res = getAdminTournaments(telegramId)
-    const tournaments = res || []
+    const res = await getAllPlayers(telegramId); // barcha o'yinchilarni olish
+    const players = res.players || [];
 
-    if(tournaments.length === 0){
-      return ctx.reply("Sizda hali hech qanday turnir yo'q.")
+    if (players.length === 0) {
+      return ctx.reply("Hozircha o'yinchilar mavjud emas.");
     }
 
-    for(const t of tournaments){
-      const teamRes = await getTeamsByTournamentId(telegramId, t._id)
-      const teams = teamRes.teams || []
+    // Inline keyboard uchun tugmalar
+    const buttons = players.map(p => [
+      Markup.button.callback(
+        `@${p.user?.username || p.user?.telegramId}`,
+        `playerStats_${p._id}`
+      )
+    ]);
 
-      if(teams.length === 0) continue
-
-      await ctx.replyWithHTML(`<b>${t.name}</b> O'yinchilar statistikasi:\n`)
-
-      for(const team of teams){
-        for(const p of team.players){
-          try {
-            const stats = await getPlayerStatsById(telegramId,p._id)
-
-            const st = stats.stats || {}
-            const player = stats.player || {}
-
-            const msg =
-              `👤 <b>@${player.user?.username || player.user?.telegramId}</b>\n` +
-              `🏆 <b>Jamoa:</b> ${player.team?.name || "Noma'lum"}\n` +
-              `⚽️ Gollar: ${st.goals || 0}\n` +
-              `🎯 Assistlar: ${st.assists || 0}\n` +
-              `🏟 O'yinlar: ${st.matchesPlayed || 0}\n` +
-              `✅ G'alabalar: ${st.wins || 0}\n` +
-              `❌ Mag'lubiyatlar: ${st.losses || 0}\n`;
-
-            await ctx.replyWithHTML(msg);
-          } catch (error) {
-            console.error("O'yinchi statistikasi olishda xato:", err.message);
-          }
-        }
-      }
-    }
-    await ctx.reply("Statistikalar yakunlandi")
+    await ctx.reply(
+      "Quyidagi o’yinchilardan birini tanlang:",
+      Markup.inlineKeyboard(buttons)
+    );
   } catch (error) {
-    console.error("📈 Statistikani olishda xato:", error.response?.data || error.message);
-    ctx.reply("❌ Statistikani olishda xatolik yuz berdi.");
+    console.error("getAllPlayers xato:", error.response?.data || error.message || error);
+    ctx.reply("O’yinchilar ro’yxatini olishda xatolik yuz berdi.");
   }
-})
+});
+
 
 adminScene.action(/approve_(.+)_(.+)_(.+)/, async (ctx) => {
   await ctx.answerCbQuery();
@@ -426,6 +407,35 @@ adminScene.action(/standings_(.+)/, async (ctx) => {
     ctx.reply("❌ Jadvalni olishda xatolik yuz berdi.");
   }
 })
+
+adminScene.action(/playerStats_(.+)/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const telegramId = ctx.from.id;
+  const playerId = ctx.match[1];
+
+  try {
+    const res = await getPlayerStatsById(telegramId, playerId);
+    const stats = res.stats || {};
+    const player = res.player || {};
+
+    const msg =
+      `👤 <b>@${player.user?.username || player.user?.telegramId}</b>\n` +
+      `🏆 <b>Jamoa:</b> ${player.team?.name || "Noma'lum"}\n` +
+      `⚽️ Gollar: ${stats.goals || 0}\n` +
+      `🎯 Assistlar: ${stats.assists || 0}\n` +
+      `🏟 O'yinlar: ${stats.matchesPlayed || 0}\n` +
+      `✅ G'alabalar: ${stats.wins || 0}\n` +
+      `❌ Mag'lubiyatlar: ${stats.losses || 0}\n`;
+
+    await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
+      [Markup.button.callback("⬅️ Orqaga", "back_admin_menu")]
+    ]));
+  } catch (error) {
+    console.error("O'yinchi statistikasi olishda xato:", error.response?.data || error.message || error);
+    ctx.reply("O'yinchi statistikasi olishda xatolik yuz berdi.");
+  }
+});
+
 
 adminScene.on("text", async (ctx) => {
   const step = ctx.scene.session.step;

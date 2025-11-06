@@ -86,6 +86,11 @@ const getMyTournaments = async (telegramId) => {
   return res.data;
 };
 
+const getAllPlayers =async(telegramId) => {
+  const res = await api.get("/player",authHeader(telegramId))
+  return res.data
+}
+
 const getPlayerStatsById = async (telegramId,id) => {
   const res = await api.get(`/player/stats/player/${id}`,authHeader(telegramId));
   return res.data;
@@ -147,6 +152,7 @@ module.exports = {
   getTeamsByTournamentId,
   joinTournament,
   getMyTournaments,
+  getAllPlayers,
   getPlayerStatsById,
   getMyStats,
   getPlayerMatches,
