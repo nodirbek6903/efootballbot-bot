@@ -19,8 +19,7 @@ adminScene.enter(async (ctx) => {
   const telegramId = ctx.from.id;
   try {
     const userRes = await getUserByTelegramId(telegramId);
-    // adapt depending on backend: if getUserByTelegramId returns { success:true, user } or user
-    const user = userRes.user || userRes; // safe attempt
+    const user = userRes.user || userRes;
 
     if (!user) return ctx.reply("Siz tizimda ro'yxatdan o'tmagansiz.");
 
@@ -34,7 +33,7 @@ adminScene.enter(async (ctx) => {
       "Admin panelga xush kelibsiz 👇",
       Markup.keyboard([
         ["🏆 Turnir yaratish", "📋 Mening turnirlarim"],
-        ["🏠 Bosh menyu"],["📝 Natijalarni tasdiqlash"]
+        ["📝 Natijalarni tasdiqlash","O'yinchilar statistikasi"],["🏠 Bosh menyu"]
       ]).resize()
     );
   } catch (err) {
@@ -131,7 +130,7 @@ adminScene.hears("📝 Natijalarni tasdiqlash", async (ctx) => {
             `approve_${r.match._id}_${r.scoreA}_${r.scoreB}`
           ),
           Markup.button.callback(
-            `✅ ${teamB.name} natijasini tasdiqlash`,
+            `${teamB.name} natijasini tasdiqlash`,
             `approve_${r.match._id}_${r.scoreB}_${r.scoreA}`
           ),
         ])
@@ -139,7 +138,7 @@ adminScene.hears("📝 Natijalarni tasdiqlash", async (ctx) => {
         // Pending bo‘lsa 1 ta tasdiqlash buttoni
         buttons.push([
           Markup.button.callback(
-            `✅ Natijani tasdiqlash`,
+            `Natijani tasdiqlash`,
             `approve_${r.match._id}_${r.scoreA}_${r.scoreB}`
           ),
         ]);
@@ -153,6 +152,56 @@ adminScene.hears("📝 Natijalarni tasdiqlash", async (ctx) => {
     ctx.reply("Natijalarni olishda xatolik yuz berdi.");
   }
 });
+adminScene.hears("O'yinchilar statistikasi", async (ctx) => {
+  const telegramId = ctx.from.id
+  await ctx.reply("Malumotlar yuklanmoqda...")
+
+  try {
+    const res = getAdminTournaments(telegramId)
+    const tournaments = res || []
+
+    if(tournaments.length === 0){
+      return ctx.reply("Sizda hali hech qanday turnir yo'q.")
+    }
+
+    for(const t of tournaments){
+      const teamRes = await getTeamsByTournamentId(telegramId, t._id)
+      const teams = teamRes.teams || []
+
+      if(teams.length === 0) continue
+
+      await ctx.replyWithHTML(`<b>${t.name}</b> O'yinchilar statistikasi:\n`)
+
+      for(const team of teams){
+        for(const p of team.players){
+          try {
+            const stats = await getPlayerStatsById(p._id)
+
+            const st = stats.stats || {}
+            const player = stats.player || {}
+
+            const msg =
+              `👤 <b>@${player.user?.username || player.user?.telegramId}</b>\n` +
+              `🏆 <b>Jamoa:</b> ${player.team?.name || "Noma'lum"}\n` +
+              `⚽️ Gollar: ${st.goals || 0}\n` +
+              `🎯 Assistlar: ${st.assists || 0}\n` +
+              `🏟 O'yinlar: ${st.matchesPlayed || 0}\n` +
+              `✅ G'alabalar: ${st.wins || 0}\n` +
+              `❌ Mag'lubiyatlar: ${st.losses || 0}\n`;
+
+            await ctx.replyWithHTML(msg);
+          } catch (error) {
+            console.error("O'yinchi statistikasi olishda xato:", err.message);
+          }
+        }
+      }
+    }
+    await ctx.reply("Statistikalar yakunlandi")
+  } catch (error) {
+    console.error("📈 Statistikani olishda xato:", error.response?.data || error.message);
+    ctx.reply("❌ Statistikani olishda xatolik yuz berdi.");
+  }
+})
 
 adminScene.action(/approve_(.+)_(.+)_(.+)/, async (ctx) => {
   await ctx.answerCbQuery();

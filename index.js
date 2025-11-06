@@ -99,7 +99,7 @@ app.listen(PORT, () => {
   console.log(`🤖 Bot server running on port ${PORT}`);
 });
 
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+// process.once("SIGINT", () => bot.stop("SIGINT"));
+// process.once("SIGTERM", () => bot.stop("SIGTERM"));
 
 module.exports = { bot };
