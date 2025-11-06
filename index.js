@@ -82,7 +82,6 @@ app.use(express.json());
 // Telegram webhook callback
 app.use(bot.webhookCallback("/telegram-bot"));
 
-// Render yoki boshqa public URL orqali webhook set qilish
 (async () => {
   try {
     await bot.telegram.deleteWebhook();

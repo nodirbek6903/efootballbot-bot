@@ -86,8 +86,8 @@ const getMyTournaments = async (telegramId) => {
   return res.data;
 };
 
-const getPlayerStatsById = async (id) => {
-  const res = await api.get(`/player/stats/player/${id}`);
+const getPlayerStatsById = async (telegramId,id) => {
+  const res = await api.get(`/player/stats/player/${id}`,authHeader(telegramId));
   return res.data;
 };
 

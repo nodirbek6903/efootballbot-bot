@@ -175,7 +175,7 @@ adminScene.hears("O'yinchilar statistikasi", async (ctx) => {
       for(const team of teams){
         for(const p of team.players){
           try {
-            const stats = await getPlayerStatsById(p._id)
+            const stats = await getPlayerStatsById(telegramId,p._id)
 
             const st = stats.stats || {}
             const player = stats.player || {}
