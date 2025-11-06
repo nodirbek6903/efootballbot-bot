@@ -9,7 +9,6 @@ const {
   notifyPlayers,
   getPendingResults,
   approveResult,
-  getAllPlayers,
   getPlayerStatsById,
   getGroupStandings
 } = require("../helpers/api");
@@ -153,35 +152,31 @@ adminScene.hears("📝 Natijalarni tasdiqlash", async (ctx) => {
     ctx.reply("Natijalarni olishda xatolik yuz berdi.");
   }
 });
+
 adminScene.hears("O'yinchilar statistikasi", async (ctx) => {
   const telegramId = ctx.from.id;
-  await ctx.reply("O'yinchilar yuklanmoqda...");
-
   try {
-    const res = await getAllPlayers(telegramId); // barcha o'yinchilarni olish
-    const players = res.players || [];
+    // 1️⃣ Faqat active turnirlarni olish
+    const tournaments = await getAdminTournaments(telegramId);
+    const activeTournaments = tournaments.filter(t => t.status === "active");
 
-    if (players.length === 0) {
-      return ctx.reply("Hozircha o'yinchilar mavjud emas.");
+    if (!activeTournaments.length) {
+      return ctx.reply("Hozircha faol turnirlar mavjud emas.");
     }
 
-    // Inline keyboard uchun tugmalar
-    const buttons = players.map(p => [
-      Markup.button.callback(
-        `@${p.user?.username || p.user?.telegramId}`,
-        `playerStats_${p._id}`
-      )
+    // Inline buttonlar bilan turnirlarni ko'rsatish
+    const buttons = activeTournaments.map(t => [
+      Markup.button.callback(t.name, `selectTournament_${t._id}`)
     ]);
 
-    await ctx.reply(
-      "Quyidagi o’yinchilardan birini tanlang:",
-      Markup.inlineKeyboard(buttons)
-    );
-  } catch (error) {
-    console.error("getAllPlayers xato:", error.response?.data || error.message || error);
-    ctx.reply("O’yinchilar ro’yxatini olishda xatolik yuz berdi.");
+    await ctx.reply("Qaysi turnir uchun o'yinchilar ro'yxatini ko'rmoqchisiz?", Markup.inlineKeyboard(buttons));
+
+  } catch (err) {
+    console.error("O'yinchilar statistikasi xato:", err);
+    ctx.reply("Turnirlarni olishda xatolik yuz berdi.");
   }
 });
+
 
 
 adminScene.action(/approve_(.+)_(.+)_(.+)/, async (ctx) => {
@@ -408,6 +403,43 @@ adminScene.action(/standings_(.+)/, async (ctx) => {
   }
 })
 
+adminScene.action(/selectTournament_(.+)/, async (ctx) => {
+  await ctx.answerCbQuery();
+  const tournamentId = ctx.match[1];
+  const telegramId = ctx.from.id;
+
+  try {
+    // Shu turnirdagi barcha jamoalarni olish
+    const res = await getTeamsByTournamentId(telegramId, tournamentId);
+    const teams = res.teams || res.data?.teams || [];
+
+    if (!teams.length) {
+      return ctx.reply("Bu turnirda hali jamoa yoki o'yinchi mavjud emas.");
+    }
+
+    // Har bir teamdagi o'yinchilarni alohida button qilamiz
+    const buttons = [];
+    teams.forEach(team => {
+      if (team.players?.length) {
+        team.players.forEach(player => {
+          buttons.push([Markup.button.callback(
+            `@${player.username || player.telegramId} (${team.name})`,
+            `playerStats_${player._id}`
+          )]);
+        });
+      }
+    });
+
+    await ctx.reply("O'yinchini tanlang:", Markup.inlineKeyboard(buttons));
+
+  } catch (err) {
+    console.error(err);
+    ctx.reply("O'yinchilar ro'yxatini olishda xatolik yuz berdi.");
+  }
+});
+
+
+// 3️⃣ Tanlangan o'yinchi statistikasi
 adminScene.action(/playerStats_(.+)/, async (ctx) => {
   await ctx.answerCbQuery();
   const telegramId = ctx.from.id;
@@ -430,8 +462,9 @@ adminScene.action(/playerStats_(.+)/, async (ctx) => {
     await ctx.replyWithHTML(msg, Markup.inlineKeyboard([
       [Markup.button.callback("⬅️ Orqaga", "back_admin_menu")]
     ]));
+
   } catch (error) {
-    console.error("O'yinchi statistikasi olishda xato:", error.response?.data || error.message || error);
+    console.error("O'yinchi statistikasi olishda xato:", error);
     ctx.reply("O'yinchi statistikasi olishda xatolik yuz berdi.");
   }
 });
